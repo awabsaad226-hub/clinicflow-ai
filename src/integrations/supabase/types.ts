@@ -14,7 +14,222 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_config: {
+        Row: {
+          booking_rules: string
+          clinic_name: string
+          created_at: string
+          custom_instructions: string
+          disallowed_behaviors: string
+          emergency_rules: string
+          id: string
+          personality: string
+          pricing_details: string
+          services_offered: string[]
+          tone: string
+          updated_at: string
+        }
+        Insert: {
+          booking_rules?: string
+          clinic_name?: string
+          created_at?: string
+          custom_instructions?: string
+          disallowed_behaviors?: string
+          emergency_rules?: string
+          id?: string
+          personality?: string
+          pricing_details?: string
+          services_offered?: string[]
+          tone?: string
+          updated_at?: string
+        }
+        Update: {
+          booking_rules?: string
+          clinic_name?: string
+          created_at?: string
+          custom_instructions?: string
+          disallowed_behaviors?: string
+          emergency_rules?: string
+          id?: string
+          personality?: string
+          pricing_details?: string
+          services_offered?: string[]
+          tone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      appointments: {
+        Row: {
+          created_at: string
+          ends_at: string
+          id: string
+          notes: string | null
+          patient_id: string
+          starts_at: string
+          status: Database["public"]["Enums"]["appointment_status"]
+          treatment_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ends_at: string
+          id?: string
+          notes?: string | null
+          patient_id: string
+          starts_at: string
+          status?: Database["public"]["Enums"]["appointment_status"]
+          treatment_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ends_at?: string
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          starts_at?: string
+          status?: Database["public"]["Enums"]["appointment_status"]
+          treatment_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automations_log: {
+        Row: {
+          ai_output: Json | null
+          automation_type: string
+          created_at: string
+          id: string
+          patient_id: string | null
+          status: string
+          trigger: string | null
+        }
+        Insert: {
+          ai_output?: Json | null
+          automation_type: string
+          created_at?: string
+          id?: string
+          patient_id?: string | null
+          status?: string
+          trigger?: string | null
+        }
+        Update: {
+          ai_output?: Json | null
+          automation_type?: string
+          created_at?: string
+          id?: string
+          patient_id?: string | null
+          status?: string
+          trigger?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automations_log_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          body: string
+          created_at: string
+          human_takeover: boolean
+          id: string
+          intent: Database["public"]["Enums"]["ai_intent"] | null
+          patient_id: string
+          sender: Database["public"]["Enums"]["message_sender"]
+          suggested_action: string | null
+          tags: string[]
+          urgency: Database["public"]["Enums"]["ai_urgency"] | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          human_takeover?: boolean
+          id?: string
+          intent?: Database["public"]["Enums"]["ai_intent"] | null
+          patient_id: string
+          sender: Database["public"]["Enums"]["message_sender"]
+          suggested_action?: string | null
+          tags?: string[]
+          urgency?: Database["public"]["Enums"]["ai_urgency"] | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          human_takeover?: boolean
+          id?: string
+          intent?: Database["public"]["Enums"]["ai_intent"] | null
+          patient_id?: string
+          sender?: Database["public"]["Enums"]["message_sender"]
+          suggested_action?: string | null
+          tags?: string[]
+          urgency?: Database["public"]["Enums"]["ai_urgency"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patients: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          last_visit: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          status: Database["public"]["Enums"]["patient_status"]
+          tags: string[]
+          treatment_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          last_visit?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          status?: Database["public"]["Enums"]["patient_status"]
+          tags?: string[]
+          treatment_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          last_visit?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          status?: Database["public"]["Enums"]["patient_status"]
+          tags?: string[]
+          treatment_type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +238,16 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      ai_intent: "booking" | "inquiry" | "emergency" | "casual"
+      ai_urgency: "low" | "medium" | "high"
+      appointment_status: "scheduled" | "completed" | "missed" | "cancelled"
+      message_sender: "patient" | "ai" | "staff"
+      patient_status:
+        | "new_lead"
+        | "booked"
+        | "treated"
+        | "follow_up"
+        | "inactive"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +374,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      ai_intent: ["booking", "inquiry", "emergency", "casual"],
+      ai_urgency: ["low", "medium", "high"],
+      appointment_status: ["scheduled", "completed", "missed", "cancelled"],
+      message_sender: ["patient", "ai", "staff"],
+      patient_status: [
+        "new_lead",
+        "booked",
+        "treated",
+        "follow_up",
+        "inactive",
+      ],
+    },
   },
 } as const
