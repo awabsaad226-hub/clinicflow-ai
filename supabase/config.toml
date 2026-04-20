@@ -2,3 +2,6 @@ project_id = "rdwtbakhmkmczukmvaat"
 
 [functions.ai-reply]
 verify_jwt = false
+
+[functions.ai-automation]
+verify_jwt = false
