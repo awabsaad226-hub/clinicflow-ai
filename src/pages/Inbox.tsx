@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Send, Sparkles, UserCog, Tag, Loader2 } from "lucide-react";
+import { Search, Send, Sparkles, UserCog, Tag, Loader2, Mail, Inbox as InboxIcon, Plus } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
