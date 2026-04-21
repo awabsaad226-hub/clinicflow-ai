@@ -17,6 +17,8 @@ export type Database = {
       ai_config: {
         Row: {
           booking_rules: string
+          calendly_url: string
+          clinic_hours: string
           clinic_name: string
           created_at: string
           custom_instructions: string
@@ -31,6 +33,8 @@ export type Database = {
         }
         Insert: {
           booking_rules?: string
+          calendly_url?: string
+          clinic_hours?: string
           clinic_name?: string
           created_at?: string
           custom_instructions?: string
@@ -45,6 +49,8 @@ export type Database = {
         }
         Update: {
           booking_rules?: string
+          calendly_url?: string
+          clinic_hours?: string
           clinic_name?: string
           created_at?: string
           custom_instructions?: string
@@ -140,6 +146,83 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      external_messages: {
+        Row: {
+          body: string
+          created_at: string
+          from_email: string
+          from_name: string | null
+          id: string
+          patient_id: string | null
+          read: boolean
+          received_at: string
+          source: string
+          subject: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          from_email: string
+          from_name?: string | null
+          id?: string
+          patient_id?: string | null
+          read?: boolean
+          received_at?: string
+          source: string
+          subject?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          from_email?: string
+          from_name?: string | null
+          id?: string
+          patient_id?: string | null
+          read?: boolean
+          received_at?: string
+          source?: string
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_messages_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integrations: {
+        Row: {
+          config: Json
+          connected_at: string | null
+          created_at: string
+          id: string
+          provider: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          connected_at?: string | null
+          created_at?: string
+          id?: string
+          provider: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          connected_at?: string | null
+          created_at?: string
+          id?: string
+          provider?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       messages: {
         Row: {
