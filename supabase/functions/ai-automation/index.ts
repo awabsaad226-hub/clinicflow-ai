@@ -41,13 +41,19 @@ const AUTOMATION_GOALS: Record<AutomationType, string> = {
 };
 
 function buildSystemPrompt(cfg: Record<string, any>): string {
+  const calendly = cfg.calendly_url
+    ? `\nCalendly booking link (include in messages when proposing booking): ${cfg.calendly_url}`
+    : "";
+  const hours = cfg.clinic_hours
+    ? `\nClinic availability (use these hours when proposing time slots — never propose times outside these): ${cfg.clinic_hours}`
+    : "";
   return `You are an AI assistant for a dental clinic.
 
 Clinic Name: ${cfg.clinic_name ?? "Our Dental Clinic"}
 Services: ${(cfg.services_offered ?? []).join?.(", ") || "General dentistry"}
 Pricing: ${cfg.pricing_details ?? "On request"}
 Tone: ${cfg.tone ?? "friendly"}
-Personality: ${cfg.personality ?? "Warm and professional"}
+Personality: ${cfg.personality ?? "Warm and professional"}${hours}${calendly}
 
 Instructions:
 ${cfg.custom_instructions ?? ""}
