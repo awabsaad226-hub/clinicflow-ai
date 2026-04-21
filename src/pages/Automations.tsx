@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import {
   AlertTriangle, Heart, RefreshCcw, Sparkles, UserPlus, CalendarCheck, Loader2,
-  PlayCircle, CheckCircle2, MessageSquare, Send,
+  PlayCircle, CheckCircle2, MessageSquare, Send, Zap, Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { runAutomation, persistAutomationRun, type AutomationType, type AutomationResult } from "@/lib/automations";
@@ -90,8 +90,10 @@ export default function Automations() {
   const [appts, setAppts] = useState<Appointment[]>([]);
   const [logs, setLogs] = useState<AutomationLog[]>([]);
   const [config, setConfig] = useState<AiConfig | null>(null);
+  const [slackWebhook, setSlackWebhook] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<AutomationType | null>(null);
+  const [runAllProgress, setRunAllProgress] = useState<{ done: number; total: number } | null>(null);
   const [preview, setPreview] = useState<{
     flow: FlowDef;
     patient: Patient;
@@ -100,16 +102,18 @@ export default function Automations() {
 
   const load = async () => {
     setLoading(true);
-    const [{ data: p }, { data: a }, { data: l }, { data: c }] = await Promise.all([
+    const [{ data: p }, { data: a }, { data: l }, { data: c }, { data: ints }] = await Promise.all([
       supabase.from("patients").select("*"),
       supabase.from("appointments").select("*"),
       supabase.from("automations_log").select("*").order("created_at", { ascending: false }).limit(30),
       supabase.from("ai_config").select("*").limit(1).maybeSingle(),
+      supabase.from("integrations").select("*").eq("provider", "slack").eq("status", "connected").maybeSingle(),
     ]);
     setPatients(p ?? []);
     setAppts(a ?? []);
     setLogs(l ?? []);
     setConfig(c ?? null);
+    setSlackWebhook((ints as any)?.config?.webhook_url ?? null);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
