@@ -51,6 +51,8 @@ export async function runAutomation(input: {
         emergency_rules: config.emergency_rules,
         booking_rules: config.booking_rules,
         disallowed_behaviors: config.disallowed_behaviors,
+        clinic_hours: (config as any).clinic_hours,
+        calendly_url: (config as any).calendly_url,
       },
       trigger_context,
     },

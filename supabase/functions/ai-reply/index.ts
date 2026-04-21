@@ -19,6 +19,8 @@ interface AiConfig {
   emergency_rules?: string;
   booking_rules?: string;
   disallowed_behaviors?: string;
+  clinic_hours?: string;
+  calendly_url?: string;
 }
 
 interface PatientContext {
@@ -45,13 +47,19 @@ interface RequestBody {
 }
 
 function buildSystemPrompt(cfg: AiConfig, business_context?: string): string {
+  const hours = cfg.clinic_hours
+    ? `\nClinic availability (only propose times within these hours): ${cfg.clinic_hours}`
+    : "";
+  const calendly = cfg.calendly_url
+    ? `\nCalendly booking link (share when proposing booking): ${cfg.calendly_url}`
+    : "";
   return `You are an AI assistant for a dental clinic.
 
 Clinic Name: ${cfg.clinic_name ?? "Our Dental Clinic"}
 Services: ${(cfg.services_offered ?? []).join(", ") || "General dentistry"}
 Pricing: ${cfg.pricing_details ?? "On request"}
 Tone: ${cfg.tone ?? "friendly"}
-Personality: ${cfg.personality ?? "Warm and professional"}
+Personality: ${cfg.personality ?? "Warm and professional"}${hours}${calendly}
 
 Instructions:
 ${cfg.custom_instructions ?? ""}
