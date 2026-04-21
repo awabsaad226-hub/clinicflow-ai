@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { MetricCard } from "@/components/MetricCard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Sparkles, Calendar, AlertTriangle, DollarSign, ArrowRight } from "lucide-react";
+import { Users, Sparkles, Calendar, AlertTriangle, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Patient, Appointment, Message } from "@/lib/db-types";
-import { format, isToday, startOfWeek, startOfMonth, isAfter } from "date-fns";
+import { format, isToday } from "date-fns";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { IntentBadge, UrgencyBadge } from "@/components/StatusBadges";
@@ -41,21 +41,12 @@ export default function Dashboard() {
   }, []);
 
   const today = new Date();
-  const weekStart = startOfWeek(today);
-  const monthStart = startOfMonth(today);
 
   const newLeadsToday = patients.filter(
     (p) => isToday(new Date(p.created_at)) && p.status === "new_lead"
   ).length;
   const apptsToday = appointments.filter((a) => isToday(new Date(a.starts_at)));
   const missed = appointments.filter((a) => a.status === "missed").length;
-
-  // Mock revenue (no payments table in Phase 1) — derived from completed appts
-  const completed = appointments.filter((a) => a.status === "completed");
-  const completedThisWeek = completed.filter((a) => isAfter(new Date(a.starts_at), weekStart)).length;
-  const completedThisMonth = completed.filter((a) => isAfter(new Date(a.starts_at), monthStart)).length;
-  const weeklyRevenue = completedThisWeek * 180;
-  const monthlyRevenue = completedThisMonth * 180;
 
   const upcoming24h = appointments.filter((a) => {
     const t = new Date(a.starts_at).getTime();
@@ -74,23 +65,17 @@ export default function Dashboard() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {Array.from({ length: 5 }).map((_, i) => (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-[110px] rounded-xl" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <MetricCard label="Total Patients" value={patients.length} icon={Users} tone="primary" />
             <MetricCard label="New Leads Today" value={newLeadsToday} icon={Sparkles} tone="accent" hint="Created in the last 24h" />
             <MetricCard label="Appointments Today" value={apptsToday.length} icon={Calendar} tone="success" />
             <MetricCard label="Missed" value={missed} icon={AlertTriangle} tone="destructive" hint="All-time missed" />
-            <MetricCard
-              label="Revenue (week / month)"
-              value={`$${weeklyRevenue.toLocaleString()} / $${monthlyRevenue.toLocaleString()}`}
-              icon={DollarSign}
-              tone="warning"
-            />
           </div>
         )}
 
