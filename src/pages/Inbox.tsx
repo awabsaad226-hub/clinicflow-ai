@@ -18,6 +18,7 @@ import { callAiReply } from "@/lib/ai";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Inbox() {
   const [patients, setPatients] = useState<Patient[]>([]);
