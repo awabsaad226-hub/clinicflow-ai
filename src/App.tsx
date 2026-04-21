@@ -25,6 +25,7 @@ const App = () => (
           <Route path="/inbox" element={<Inbox />} />
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/automations" element={<Automations />} />
+          <Route path="/integrations" element={<Integrations />} />
           <Route path="/ai-settings" element={<AiSettings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
