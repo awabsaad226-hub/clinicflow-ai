@@ -335,6 +335,8 @@ export default function Inbox() {
           )}
         </Card>
       </div>
+        </TabsContent>
+      </Tabs>
     </AppShell>
   );
 }
