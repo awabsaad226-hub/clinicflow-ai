@@ -190,7 +190,18 @@ export default function Inbox() {
 
   return (
     <AppShell title="Inbox">
-      <div className="grid h-[calc(100vh-9rem)] grid-cols-1 gap-4 md:grid-cols-[320px_1fr]">
+      <Tabs defaultValue="conversations" className="space-y-3">
+        <TabsList>
+          <TabsTrigger value="conversations" className="gap-2">
+            <InboxIcon className="h-4 w-4" /> Patient chats
+          </TabsTrigger>
+          <TabsTrigger value="emails" className="gap-2">
+            <Mail className="h-4 w-4" /> External emails
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="emails"><EmailsPanel /></TabsContent>
+        <TabsContent value="conversations">
+      <div className="grid h-[calc(100vh-12rem)] grid-cols-1 gap-4 md:grid-cols-[320px_1fr]">
         {/* Conversation list */}
         <Card className="surface-card flex h-full min-h-0 flex-col overflow-hidden">
           <div className="border-b p-3">
