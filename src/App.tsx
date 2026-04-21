@@ -8,6 +8,7 @@ import Patients from "./pages/Patients";
 import Inbox from "./pages/Inbox";
 import Appointments from "./pages/Appointments";
 import Automations from "./pages/Automations";
+import Integrations from "./pages/Integrations";
 import AiSettings from "./pages/AiSettings";
 import NotFound from "./pages/NotFound.tsx";
 
