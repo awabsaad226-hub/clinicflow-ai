@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.ai-automation]
 verify_jwt = false
+
+[functions.slack-alert]
+verify_jwt = false

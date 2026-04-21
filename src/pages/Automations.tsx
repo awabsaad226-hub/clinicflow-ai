@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import {
   AlertTriangle, Heart, RefreshCcw, Sparkles, UserPlus, CalendarCheck, Loader2,
-  PlayCircle, CheckCircle2, MessageSquare, Send,
+  PlayCircle, CheckCircle2, MessageSquare, Send, Zap, Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { runAutomation, persistAutomationRun, type AutomationType, type AutomationResult } from "@/lib/automations";
@@ -90,8 +90,10 @@ export default function Automations() {
   const [appts, setAppts] = useState<Appointment[]>([]);
   const [logs, setLogs] = useState<AutomationLog[]>([]);
   const [config, setConfig] = useState<AiConfig | null>(null);
+  const [slackWebhook, setSlackWebhook] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<AutomationType | null>(null);
+  const [runAllProgress, setRunAllProgress] = useState<{ done: number; total: number } | null>(null);
   const [preview, setPreview] = useState<{
     flow: FlowDef;
     patient: Patient;
@@ -100,16 +102,18 @@ export default function Automations() {
 
   const load = async () => {
     setLoading(true);
-    const [{ data: p }, { data: a }, { data: l }, { data: c }] = await Promise.all([
+    const [{ data: p }, { data: a }, { data: l }, { data: c }, { data: ints }] = await Promise.all([
       supabase.from("patients").select("*"),
       supabase.from("appointments").select("*"),
       supabase.from("automations_log").select("*").order("created_at", { ascending: false }).limit(30),
       supabase.from("ai_config").select("*").limit(1).maybeSingle(),
+      supabase.from("integrations").select("*").eq("provider", "slack").eq("status", "connected").maybeSingle(),
     ]);
     setPatients(p ?? []);
     setAppts(a ?? []);
     setLogs(l ?? []);
     setConfig(c ?? null);
+    setSlackWebhook((ints as any)?.config?.webhook_url ?? null);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -207,17 +211,104 @@ export default function Automations() {
     load();
   };
 
+  // Run every flow for every matching patient.
+  // Auto-send if AI says should_send=true AND urgency is low/medium.
+  // High urgency → don't send, instead ping Slack (if connected) so a human takes over.
+  const runAll = async () => {
+    if (!config) {
+      toast.error("AI config not loaded");
+      return;
+    }
+    const jobs: { flow: FlowDef; patient: Patient; trigger: string }[] = [];
+    FLOWS.forEach((flow) => {
+      candidates[flow.type].forEach((c) => jobs.push({ flow, ...c }));
+    });
+    if (jobs.length === 0) {
+      toast.info("No matching patients to process right now");
+      return;
+    }
+    setRunAllProgress({ done: 0, total: jobs.length });
+    let sent = 0, alerted = 0, skipped = 0, failed = 0;
+    for (let i = 0; i < jobs.length; i++) {
+      const job = jobs[i];
+      try {
+        const { data: history } = await supabase
+          .from("messages").select("*").eq("patient_id", job.patient.id).order("created_at");
+        const result = await runAutomation({
+          type: job.flow.type,
+          patient: job.patient,
+          history: (history ?? []) as Message[],
+          config,
+          trigger_context: job.trigger,
+        });
+        if (result.error) { failed++; continue; }
+        const safeToSend = result.should_send && result.urgency !== "high";
+        await persistAutomationRun({
+          patient: job.patient,
+          type: job.flow.type,
+          result,
+          trigger: `Auto-run: ${job.trigger}`,
+          send: safeToSend,
+        });
+        if (safeToSend) sent++; else skipped++;
+        if (result.urgency === "high" && slackWebhook) {
+          await supabase.functions.invoke("slack-alert", {
+            body: {
+              webhook_url: slackWebhook,
+              patient_name: job.patient.name,
+              message: result.message || "(AI flagged but produced no draft)",
+              urgency: result.urgency,
+              intent: result.intent,
+              context: `${job.flow.title} · ${job.trigger}`,
+            },
+          });
+          alerted++;
+        }
+      } catch {
+        failed++;
+      }
+      setRunAllProgress({ done: i + 1, total: jobs.length });
+    }
+    setRunAllProgress(null);
+    toast.success(
+      `Done · ${sent} sent · ${skipped} drafted · ${alerted} Slack alert${alerted === 1 ? "" : "s"}` +
+        (failed ? ` · ${failed} failed` : ""),
+    );
+    load();
+  };
+
   return (
     <AppShell title="Automation Center">
       <div className="space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
+          <div className="max-w-2xl">
             <h2 className="text-2xl font-semibold tracking-tight">AI-driven automations</h2>
             <p className="text-sm text-muted-foreground">
-              Every decision is made by the AI using your settings — no keyword rules. Tap a flow to preview the next message it would send.
+              Every decision is made by the AI using your settings — no keyword rules. Tap a flow to preview the next
+              message, or hit <strong>Run all & auto-send</strong> to let the AI work the queue. Safe messages send
+              automatically; high-urgency ones are drafted and {slackWebhook ? "pinged to Slack" : "saved as drafts"}.
             </p>
           </div>
+          <Button onClick={runAll} disabled={running !== null || runAllProgress !== null || !config} size="lg">
+            {runAllProgress ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing {runAllProgress.done}/{runAllProgress.total}…</>
+            ) : (
+              <><Zap className="mr-2 h-4 w-4" /> Run all & auto-send</>
+            )}
+          </Button>
         </div>
+
+        <Card className="surface-card border-primary/20 bg-primary-soft/30">
+          <CardContent className="flex flex-wrap items-center gap-3 p-4 text-xs text-foreground">
+            <Bell className="h-4 w-4 text-primary" />
+            <p className="flex-1">
+              <strong>Auto-send rules:</strong> the AI sends low/medium-urgency messages on its own.
+              High-urgency cases stay as drafts {slackWebhook
+                ? <>and ping your Slack so a human can take over.</>
+                : <>— <a href="/integrations" className="underline">connect Slack</a> to get pinged in real time.</>}
+            </p>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {FLOWS.map((flow) => {

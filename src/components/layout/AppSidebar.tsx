@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, MessageSquare, Sparkles, Stethoscope, Calendar, Workflow } from "lucide-react";
+import { LayoutDashboard, Users, MessageSquare, Sparkles, Stethoscope, Calendar, Workflow, Plug } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -19,6 +19,7 @@ const items = [
   { title: "Inbox", url: "/inbox", icon: MessageSquare },
   { title: "Appointments", url: "/appointments", icon: Calendar },
   { title: "Automations", url: "/automations", icon: Workflow },
+  { title: "Integrations", url: "/integrations", icon: Plug },
   { title: "AI Settings", url: "/ai-settings", icon: Sparkles },
 ];
 

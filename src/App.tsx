@@ -8,6 +8,7 @@ import Patients from "./pages/Patients";
 import Inbox from "./pages/Inbox";
 import Appointments from "./pages/Appointments";
 import Automations from "./pages/Automations";
+import Integrations from "./pages/Integrations";
 import AiSettings from "./pages/AiSettings";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/inbox" element={<Inbox />} />
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/automations" element={<Automations />} />
+          <Route path="/integrations" element={<Integrations />} />
           <Route path="/ai-settings" element={<AiSettings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

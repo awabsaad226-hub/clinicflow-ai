@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Send, Sparkles, UserCog, Tag, Loader2 } from "lucide-react";
+import { Search, Send, Sparkles, UserCog, Tag, Loader2, Mail, Inbox as InboxIcon, Plus } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
@@ -18,6 +18,7 @@ import { callAiReply } from "@/lib/ai";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Inbox() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -189,7 +190,18 @@ export default function Inbox() {
 
   return (
     <AppShell title="Inbox">
-      <div className="grid h-[calc(100vh-9rem)] grid-cols-1 gap-4 md:grid-cols-[320px_1fr]">
+      <Tabs defaultValue="conversations" className="space-y-3">
+        <TabsList>
+          <TabsTrigger value="conversations" className="gap-2">
+            <InboxIcon className="h-4 w-4" /> Patient chats
+          </TabsTrigger>
+          <TabsTrigger value="emails" className="gap-2">
+            <Mail className="h-4 w-4" /> External emails
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="emails"><EmailsPanel /></TabsContent>
+        <TabsContent value="conversations">
+      <div className="grid h-[calc(100vh-12rem)] grid-cols-1 gap-4 md:grid-cols-[320px_1fr]">
         {/* Conversation list */}
         <Card className="surface-card flex h-full min-h-0 flex-col overflow-hidden">
           <div className="border-b p-3">
@@ -323,6 +335,8 @@ export default function Inbox() {
           )}
         </Card>
       </div>
+        </TabsContent>
+      </Tabs>
     </AppShell>
   );
 }
@@ -395,5 +409,123 @@ function TagDialog({ patient, onChanged }: { patient: Patient; onChanged: () => 
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+interface ExternalMsg {
+  id: string;
+  source: string;
+  from_email: string;
+  from_name: string | null;
+  subject: string | null;
+  body: string;
+  received_at: string;
+  patient_id: string | null;
+  read: boolean;
+}
+
+function EmailsPanel() {
+  const [emails, setEmails] = useState<ExternalMsg[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState({ from_name: "", from_email: "", subject: "", body: "" });
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("external_messages")
+      .select("*")
+      .order("received_at", { ascending: false });
+    setEmails((data ?? []) as ExternalMsg[]);
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const addDemo = async () => {
+    if (!draft.from_email.trim() || !draft.body.trim()) {
+      toast.error("From email and body are required");
+      return;
+    }
+    const { error } = await supabase.from("external_messages").insert({
+      source: "gmail",
+      from_email: draft.from_email.trim(),
+      from_name: draft.from_name.trim() || null,
+      subject: draft.subject.trim() || null,
+      body: draft.body.trim(),
+    });
+    if (error) return toast.error(error.message);
+    toast.success("Email added");
+    setDraft({ from_name: "", from_email: "", subject: "", body: "" });
+    setOpen(false);
+    load();
+  };
+
+  const markRead = async (id: string) => {
+    await supabase.from("external_messages").update({ read: true }).eq("id", id);
+    load();
+  };
+
+  return (
+    <Card className="surface-card">
+      <div className="flex items-center justify-between border-b p-3">
+        <div>
+          <p className="text-sm font-semibold">Incoming emails</p>
+          <p className="text-xs text-muted-foreground">
+            Connect Gmail in <a className="underline" href="/integrations">Integrations</a> to receive emails here. Add a sample below to preview.
+          </p>
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" variant="outline"><Plus className="mr-1 h-3.5 w-3.5" /> Add sample email</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Add a sample incoming email</DialogTitle></DialogHeader>
+            <div className="space-y-2">
+              <Input placeholder="From name" value={draft.from_name} onChange={(e) => setDraft({ ...draft, from_name: e.target.value })} />
+              <Input placeholder="From email *" value={draft.from_email} onChange={(e) => setDraft({ ...draft, from_email: e.target.value })} />
+              <Input placeholder="Subject" value={draft.subject} onChange={(e) => setDraft({ ...draft, subject: e.target.value })} />
+              <Textarea rows={4} placeholder="Body *" value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button onClick={addDemo}>Add</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+      <div className="divide-y">
+        {loading && <p className="p-6 text-center text-sm text-muted-foreground">Loading…</p>}
+        {!loading && emails.length === 0 && (
+          <p className="p-8 text-center text-sm text-muted-foreground">No emails yet.</p>
+        )}
+        {!loading && emails.map((e) => (
+          <button
+            key={e.id}
+            onClick={() => markRead(e.id)}
+            className={cn(
+              "flex w-full items-start gap-3 p-3 text-left transition-colors hover:bg-muted/50",
+              !e.read && "bg-primary-soft/30",
+            )}
+          >
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+              <Mail className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="truncate text-sm font-medium">
+                  {e.from_name ?? e.from_email}
+                  <span className="ml-2 text-xs text-muted-foreground">{e.from_email}</span>
+                </p>
+                <span className="shrink-0 text-[11px] text-muted-foreground">
+                  {formatDistanceToNow(new Date(e.received_at), { addSuffix: true })}
+                </span>
+              </div>
+              {e.subject && <p className="mt-0.5 truncate text-sm">{e.subject}</p>}
+              <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{e.body}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+    </Card>
   );
 }

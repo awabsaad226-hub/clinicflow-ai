@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Save, Sparkles, FlaskConical, AlertTriangle, Loader2 } from "lucide-react";
+import { Save, Sparkles, FlaskConical, AlertTriangle, Loader2, Clock, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { callAiReply } from "@/lib/ai";
 import { IntentBadge, UrgencyBadge } from "@/components/StatusBadges";
@@ -54,7 +54,9 @@ export default function AiSettings() {
         emergency_rules: cfg.emergency_rules,
         booking_rules: cfg.booking_rules,
         disallowed_behaviors: cfg.disallowed_behaviors,
-      })
+        clinic_hours: (cfg as any).clinic_hours,
+        calendly_url: (cfg as any).calendly_url,
+      } as any)
       .eq("id", cfg.id);
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -162,6 +164,44 @@ export default function AiSettings() {
                   value={cfg.custom_instructions}
                   onChange={(e) => update({ custom_instructions: e.target.value })}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="surface-card">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4 text-primary" /> Availability & booking
+              </CardTitle>
+              <CardDescription>
+                The AI uses your clinic hours when proposing time slots, and shares your Calendly link when booking.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-4">
+              <div>
+                <Label>Clinic hours (free text)</Label>
+                <Textarea
+                  rows={3}
+                  placeholder="Mon–Fri 9:00–18:00, Sat 10:00–14:00, closed Sunday. Lunch break 13:00–14:00."
+                  value={(cfg as any).clinic_hours ?? ""}
+                  onChange={(e) => update({ clinic_hours: e.target.value } as any)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Write it however you like. The AI will only suggest times within these hours.
+                </p>
+              </div>
+              <div>
+                <Label className="flex items-center gap-1.5">
+                  <CalendarDays className="h-3.5 w-3.5 text-primary" /> Calendly link
+                </Label>
+                <Input
+                  placeholder="https://calendly.com/your-clinic/30min"
+                  value={(cfg as any).calendly_url ?? ""}
+                  onChange={(e) => update({ calendly_url: e.target.value } as any)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Paste your Calendly URL — the AI will share it when patients want to book.
+                </p>
               </div>
             </CardContent>
           </Card>
