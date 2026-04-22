@@ -90,7 +90,7 @@ export default function Automations() {
   const [appts, setAppts] = useState<Appointment[]>([]);
   const [logs, setLogs] = useState<AutomationLog[]>([]);
   const [config, setConfig] = useState<AiConfig | null>(null);
-  const [slackWebhook, setSlackWebhook] = useState<string | null>(null);
+  const [slackChannelId, setSlackChannelId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<AutomationType | null>(null);
   const [runAllProgress, setRunAllProgress] = useState<{ done: number; total: number } | null>(null);
@@ -113,7 +113,7 @@ export default function Automations() {
     setAppts(a ?? []);
     setLogs(l ?? []);
     setConfig(c ?? null);
-    setSlackWebhook((ints as any)?.config?.webhook_url ?? null);
+    setSlackChannelId((ints as any)?.config?.channel_id ?? null);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -251,10 +251,10 @@ export default function Automations() {
           send: safeToSend,
         });
         if (safeToSend) sent++; else skipped++;
-        if (result.urgency === "high" && slackWebhook) {
+        if (result.urgency === "high" && slackChannelId) {
           await supabase.functions.invoke("slack-alert", {
             body: {
-              webhook_url: slackWebhook,
+              channel_id: slackChannelId,
               patient_name: job.patient.name,
               message: result.message || "(AI flagged but produced no draft)",
               urgency: result.urgency,
@@ -286,7 +286,7 @@ export default function Automations() {
             <p className="text-sm text-muted-foreground">
               Every decision is made by the AI using your settings — no keyword rules. Tap a flow to preview the next
               message, or hit <strong>Run all & auto-send</strong> to let the AI work the queue. Safe messages send
-              automatically; high-urgency ones are drafted and {slackWebhook ? "pinged to Slack" : "saved as drafts"}.
+              automatically; high-urgency ones are drafted and {slackChannelId ? "pinged to Slack" : "saved as drafts"}.
             </p>
           </div>
           <Button onClick={runAll} disabled={running !== null || runAllProgress !== null || !config} size="lg">
@@ -303,7 +303,7 @@ export default function Automations() {
             <Bell className="h-4 w-4 text-primary" />
             <p className="flex-1">
               <strong>Auto-send rules:</strong> the AI sends low/medium-urgency messages on its own.
-              High-urgency cases stay as drafts {slackWebhook
+              High-urgency cases stay as drafts {slackChannelId
                 ? <>and ping your Slack so a human can take over.</>
                 : <>— <a href="/integrations" className="underline">connect Slack</a> to get pinged in real time.</>}
             </p>

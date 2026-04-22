@@ -5,10 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, MessageSquare, CalendarDays, CheckCircle2, Loader2, Plug, ExternalLink } from "lucide-react";
+import {
+  Mail, MessageSquare, CalendarDays, CheckCircle2, Loader2, Plug, ExternalLink, Copy, RefreshCw,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 interface Integration {
   id: string;
@@ -18,14 +23,27 @@ interface Integration {
   connected_at: string | null;
 }
 
+interface SlackChannel { id: string; name: string; is_private: boolean }
+
+const SUPABASE_PROJECT = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+const CALENDLY_WEBHOOK_URL = `https://${SUPABASE_PROJECT}.supabase.co/functions/v1/calendly-webhook`;
+const GMAIL_INGEST_URL = `https://${SUPABASE_PROJECT}.supabase.co/functions/v1/gmail-ingest`;
+
 export default function Integrations() {
   const [rows, setRows] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  // editable local state
+  // Gmail (demo)
   const [gmailEmail, setGmailEmail] = useState("");
-  const [slackWebhook, setSlackWebhook] = useState("");
+
+  // Slack (real connector)
+  const [slackChannels, setSlackChannels] = useState<SlackChannel[]>([]);
+  const [slackChannelId, setSlackChannelId] = useState("");
+  const [loadingChannels, setLoadingChannels] = useState(false);
+  const [slackConnectorLinked, setSlackConnectorLinked] = useState(false);
+
+  // Calendly
   const [calendlyUrl, setCalendlyUrl] = useState("");
 
   const load = async () => {
@@ -34,18 +52,30 @@ export default function Integrations() {
     const list = (data ?? []) as unknown as Integration[];
     setRows(list);
     setGmailEmail(list.find((r) => r.provider === "gmail")?.config?.email ?? "");
-    setSlackWebhook(list.find((r) => r.provider === "slack")?.config?.webhook_url ?? "");
+    setSlackChannelId(list.find((r) => r.provider === "slack")?.config?.channel_id ?? "");
     setCalendlyUrl(list.find((r) => r.provider === "calendly")?.config?.url ?? "");
     setLoading(false);
   };
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
+
+  // Auto-attempt to load Slack channels — succeeds only if the connector is linked
+  const loadSlackChannels = async () => {
+    setLoadingChannels(true);
+    const { data, error } = await supabase.functions.invoke("slack-channels", { body: {} });
+    setLoadingChannels(false);
+    if (error || (data as any)?.error) {
+      setSlackConnectorLinked(false);
+      return;
+    }
+    setSlackConnectorLinked(true);
+    setSlackChannels((data as any).channels ?? []);
+  };
+  useEffect(() => { loadSlackChannels(); }, []);
 
   const updateIntegration = async (
     provider: Integration["provider"],
-    patch: { status?: "connected" | "disconnected"; config?: Record<string, any> }
+    patch: { status?: "connected" | "disconnected"; config?: Record<string, any> },
   ) => {
     const row = rows.find((r) => r.provider === provider);
     if (!row) return;
@@ -58,60 +88,33 @@ export default function Integrations() {
     if (patch.config) update.config = { ...row.config, ...patch.config };
     const { error } = await supabase.from("integrations").update(update).eq("id", row.id);
     setSavingId(null);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    if (error) return toast.error(error.message);
     toast.success(`${provider} updated`);
     load();
   };
 
   const saveGmail = async () => {
-    if (!gmailEmail.trim()) {
-      toast.error("Enter a Gmail address first");
-      return;
-    }
+    if (!gmailEmail.trim()) return toast.error("Enter a Gmail address first");
     await updateIntegration("gmail", {
       status: "connected",
       config: { email: gmailEmail.trim() },
     });
   };
 
-  const saveSlack = async () => {
-    if (!slackWebhook.trim() || !slackWebhook.startsWith("https://hooks.slack.com/")) {
-      toast.error("Paste a valid Slack incoming-webhook URL (https://hooks.slack.com/...)");
-      return;
-    }
+  const saveSlackChannel = async () => {
+    if (!slackChannelId) return toast.error("Pick a Slack channel first");
+    const channel = slackChannels.find((c) => c.id === slackChannelId);
     await updateIntegration("slack", {
       status: "connected",
-      config: { webhook_url: slackWebhook.trim() },
+      config: { channel_id: slackChannelId, channel_name: channel?.name ?? null },
     });
-  };
-
-  const saveCalendly = async () => {
-    if (!calendlyUrl.trim() || !calendlyUrl.includes("calendly.com")) {
-      toast.error("Paste your Calendly URL (https://calendly.com/...)");
-      return;
-    }
-    await updateIntegration("calendly", {
-      status: "connected",
-      config: { url: calendlyUrl.trim() },
-    });
-    // also mirror into ai_config so the AI sees it
-    const { data: cfg } = await supabase.from("ai_config").select("id").limit(1).maybeSingle();
-    if (cfg?.id) {
-      await supabase.from("ai_config").update({ calendly_url: calendlyUrl.trim() } as any).eq("id", cfg.id);
-    }
   };
 
   const testSlack = async () => {
-    if (!slackWebhook.trim()) {
-      toast.error("Save your Slack webhook first");
-      return;
-    }
+    if (!slackChannelId) return toast.error("Save a channel first");
     const { data, error } = await supabase.functions.invoke("slack-alert", {
       body: {
-        webhook_url: slackWebhook.trim(),
+        channel_id: slackChannelId,
         patient_name: "Test patient",
         message: "This is a test alert from your DentalAI workspace. If you see this, Slack alerts work! ✅",
         urgency: "low",
@@ -122,12 +125,31 @@ export default function Integrations() {
     if (error || (data as any)?.error) {
       toast.error((data as any)?.error || error?.message || "Slack test failed");
     } else {
-      toast.success("Test alert sent to Slack");
+      toast.success(`Sent to #${slackChannels.find((c) => c.id === slackChannelId)?.name ?? "channel"}`);
+    }
+  };
+
+  const saveCalendly = async () => {
+    if (!calendlyUrl.trim() || !calendlyUrl.includes("calendly.com")) {
+      return toast.error("Paste your Calendly URL (https://calendly.com/...)");
+    }
+    await updateIntegration("calendly", {
+      status: "connected",
+      config: { url: calendlyUrl.trim() },
+    });
+    const { data: cfg } = await supabase.from("ai_config").select("id").limit(1).maybeSingle();
+    if (cfg?.id) {
+      await supabase.from("ai_config").update({ calendly_url: calendlyUrl.trim() } as any).eq("id", cfg.id);
     }
   };
 
   const disconnect = (provider: Integration["provider"]) =>
     updateIntegration(provider, { status: "disconnected" });
+
+  const copy = (txt: string, label: string) => {
+    navigator.clipboard.writeText(txt);
+    toast.success(`${label} copied`);
+  };
 
   if (loading) {
     return (
@@ -151,8 +173,8 @@ export default function Integrations() {
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Connect your tools</h2>
           <p className="text-sm text-muted-foreground">
-            Bring your Gmail, Slack and Calendly into DentalAI. Patient emails arrive in your Inbox, urgent messages
-            ping Slack, and your AI proposes Calendly slots when patients want to book.
+            Bring your Gmail, Slack and Calendly into DentalAI. Patient emails arrive in your Inbox, urgent
+            messages ping a Slack channel, and Calendly bookings show up automatically.
           </p>
         </div>
 
@@ -161,7 +183,7 @@ export default function Integrations() {
           <IntegrationCard
             icon={<Mail className="h-5 w-5" />}
             title="Gmail"
-            description="Receive incoming patient emails inside the Inbox."
+            description="Forward incoming patient emails to your Inbox."
             connected={gmail?.status === "connected"}
             tone="primary"
           >
@@ -175,8 +197,8 @@ export default function Integrations() {
                 onChange={(e) => setGmailEmail(e.target.value)}
               />
               <p className="text-[11px] text-muted-foreground">
-                Demo mode: emails are stored locally so you can see how the inbox feels. Full Gmail OAuth (real-time sync)
-                can be added later — see "Going live" below.
+                Demo mode: full Gmail OAuth requires a Google Cloud project. To send a real email into your inbox
+                today, POST it to your private webhook below.
               </p>
             </div>
             <div className="flex gap-2">
@@ -185,56 +207,91 @@ export default function Integrations() {
                 {gmail?.status === "connected" ? "Update" : "Connect"}
               </Button>
               {gmail?.status === "connected" && (
-                <Button variant="ghost" onClick={() => disconnect("gmail")}>
-                  Disconnect
-                </Button>
+                <Button variant="ghost" onClick={() => disconnect("gmail")}>Disconnect</Button>
               )}
             </div>
+            {gmail?.status === "connected" && (
+              <div className="rounded-md border bg-muted/40 p-2">
+                <p className="text-[11px] font-medium">Email-in webhook</p>
+                <div className="mt-1 flex items-center gap-1">
+                  <code className="flex-1 truncate rounded bg-background px-1.5 py-1 text-[10px]">
+                    {GMAIL_INGEST_URL}
+                  </code>
+                  <Button size="sm" variant="ghost" onClick={() => copy(GMAIL_INGEST_URL, "URL")}>
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  POST JSON: {`{ "from_email", "from_name", "subject", "body" }`}
+                </p>
+              </div>
+            )}
           </IntegrationCard>
 
-          {/* SLACK */}
+          {/* SLACK — real connector */}
           <IntegrationCard
             icon={<MessageSquare className="h-5 w-5" />}
             title="Slack"
-            description="Get pinged in Slack when a patient message is high-urgency."
-            connected={slack?.status === "connected"}
+            description="Post high-urgency alerts to a Slack channel."
+            connected={slack?.status === "connected" && slackConnectorLinked}
             tone="accent"
           >
-            <div className="space-y-2">
-              <Label htmlFor="sl-hook">Slack incoming-webhook URL</Label>
-              <Input
-                id="sl-hook"
-                placeholder="https://hooks.slack.com/services/T.../B.../..."
-                value={slackWebhook}
-                onChange={(e) => setSlackWebhook(e.target.value)}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                In Slack: <em>Apps → Incoming Webhooks → Add to Slack → pick channel → copy URL</em> and paste here.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={saveSlack} disabled={savingId === slack?.id} className="flex-1">
-                {savingId === slack?.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plug className="mr-1 h-4 w-4" />}
-                {slack?.status === "connected" ? "Update" : "Connect"}
-              </Button>
-              {slack?.status === "connected" && (
-                <Button variant="outline" onClick={testSlack}>
-                  Test
+            {!slackConnectorLinked ? (
+              <div className="space-y-2 text-sm">
+                <p className="text-muted-foreground">
+                  Slack workspace not connected yet. Ask the AI in chat to "connect Slack" — Lovable will
+                  open the secure connection flow.
+                </p>
+                <Button onClick={loadSlackChannels} variant="outline" size="sm">
+                  <RefreshCw className="mr-1 h-3.5 w-3.5" /> I've connected — refresh
                 </Button>
-              )}
-              {slack?.status === "connected" && (
-                <Button variant="ghost" onClick={() => disconnect("slack")}>
-                  Disconnect
-                </Button>
-              )}
-            </div>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Alerts channel</Label>
+                    <Button variant="ghost" size="sm" onClick={loadSlackChannels} disabled={loadingChannels}>
+                      {loadingChannels ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                  <Select value={slackChannelId} onValueChange={setSlackChannelId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={loadingChannels ? "Loading channels…" : "Pick a channel"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {slackChannels.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.is_private ? "🔒" : "#"} {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">
+                    For private channels, invite <strong>@DentalAI</strong> first.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={saveSlackChannel} disabled={savingId === slack?.id} className="flex-1">
+                    {savingId === slack?.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plug className="mr-1 h-4 w-4" />}
+                    {slack?.status === "connected" ? "Update channel" : "Save channel"}
+                  </Button>
+                  {slack?.status === "connected" && (
+                    <Button variant="outline" onClick={testSlack}>Test</Button>
+                  )}
+                  {slack?.status === "connected" && (
+                    <Button variant="ghost" onClick={() => disconnect("slack")}>Disconnect</Button>
+                  )}
+                </div>
+              </>
+            )}
           </IntegrationCard>
 
           {/* CALENDLY */}
           <IntegrationCard
             icon={<CalendarDays className="h-5 w-5" />}
             title="Calendly"
-            description="AI shares your Calendly link when patients want to book."
+            description="Share booking link + receive new bookings in Inbox."
             connected={calendly?.status === "connected"}
             tone="success"
           >
@@ -247,7 +304,7 @@ export default function Integrations() {
                 onChange={(e) => setCalendlyUrl(e.target.value)}
               />
               <p className="text-[11px] text-muted-foreground">
-                The AI will paste this link into messages whenever it suggests booking — and respect your clinic hours.
+                AI will paste this link when patients want to book.
               </p>
             </div>
             <div className="flex gap-2">
@@ -263,33 +320,47 @@ export default function Integrations() {
                 </Button>
               )}
               {calendly?.status === "connected" && (
-                <Button variant="ghost" onClick={() => disconnect("calendly")}>
-                  Disconnect
-                </Button>
+                <Button variant="ghost" onClick={() => disconnect("calendly")}>Disconnect</Button>
               )}
             </div>
+            {calendly?.status === "connected" && (
+              <div className="rounded-md border bg-muted/40 p-2">
+                <p className="text-[11px] font-medium">Calendly webhook URL</p>
+                <div className="mt-1 flex items-center gap-1">
+                  <code className="flex-1 truncate rounded bg-background px-1.5 py-1 text-[10px]">
+                    {CALENDLY_WEBHOOK_URL}
+                  </code>
+                  <Button size="sm" variant="ghost" onClick={() => copy(CALENDLY_WEBHOOK_URL, "URL")}>
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  In Calendly: Integrations → Webhooks → New webhook → paste URL → events:
+                  invitee.created, invitee.canceled.
+                </p>
+              </div>
+            )}
           </IntegrationCard>
         </div>
 
         <Card className="surface-card border-warning/30 bg-warning-soft/40">
           <CardHeader>
-            <CardTitle className="text-base">Going live (production)</CardTitle>
-            <CardDescription>What changes when you move past the demo.</CardDescription>
+            <CardTitle className="text-base">How each integration works</CardTitle>
+            <CardDescription>What happens once connected.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p>
-              <span className="font-semibold text-foreground">Slack:</span> already production-ready — incoming
-              webhooks are how Slack apps push alerts.
+              <span className="font-semibold text-foreground">Slack (live):</span> when a patient message is
+              flagged high-urgency, the AI sends a draft to your chosen channel via the Lovable Slack connector.
             </p>
             <p>
-              <span className="font-semibold text-foreground">Calendly:</span> link mode works today. To let the AI
-              read real free slots, add a Calendly Personal Token (we'd add a "Calendly token" field here and call
-              their API).
+              <span className="font-semibold text-foreground">Calendly (live webhook):</span> every new booking
+              and cancellation lands in the External-emails tab of your Inbox automatically.
             </p>
             <p>
-              <span className="font-semibold text-foreground">Gmail:</span> for real two-way email, we'd swap this
-              field for Google OAuth (one-click sign-in) so patient replies land in this Inbox automatically. Lovable
-              Cloud manages Google OAuth for you.
+              <span className="font-semibold text-foreground">Gmail (demo + webhook):</span> use the email-in
+              webhook to forward emails into the inbox today. Real Gmail OAuth (one-click sign-in) is the next
+              upgrade — it needs a Google Cloud project.
             </p>
           </CardContent>
         </Card>

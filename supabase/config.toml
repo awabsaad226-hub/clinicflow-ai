@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.slack-alert]
 verify_jwt = false
+
+[functions.slack-channels]
+verify_jwt = false
+
+[functions.calendly-webhook]
+verify_jwt = false
+
+[functions.gmail-ingest]
+verify_jwt = false
