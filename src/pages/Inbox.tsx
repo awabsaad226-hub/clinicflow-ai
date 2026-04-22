@@ -474,13 +474,20 @@ function EmailsPanel({ source }: { source: "gmail" | "slack" | "calendly" }) {
     load();
   };
 
+  const labels = {
+    gmail: { title: "Gmail", hint: "Emails forwarded to your Gmail webhook show up here." },
+    slack: { title: "Slack", hint: "Mentions and DMs sent to your Slack bot show up here." },
+    calendly: { title: "Calendly", hint: "New & canceled bookings from Calendly show up here." },
+  } as const;
+  const meta = labels[source];
+
   return (
     <Card className="surface-card">
       <div className="flex items-center justify-between border-b p-3">
         <div>
-          <p className="text-sm font-semibold">Incoming emails</p>
+          <p className="text-sm font-semibold">{meta.title} inbox</p>
           <p className="text-xs text-muted-foreground">
-            Connect Gmail in <a className="underline" href="/integrations">Integrations</a> to receive emails here. Add a sample below to preview.
+            {meta.hint} Configure the webhook in <a className="underline" href="/integrations">Integrations</a>.
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
