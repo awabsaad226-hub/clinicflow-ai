@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.calendly-webhook]
 verify_jwt = false
+
+[functions.gmail-ingest]
+verify_jwt = false
