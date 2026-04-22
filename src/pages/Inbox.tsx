@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Send, Sparkles, UserCog, Tag, Loader2, Mail, Inbox as InboxIcon, Plus } from "lucide-react";
+import { Search, Send, Sparkles, UserCog, Tag, Loader2, Mail, Inbox as InboxIcon, Plus, Slack, CalendarClock } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
@@ -195,11 +195,19 @@ export default function Inbox() {
           <TabsTrigger value="conversations" className="gap-2">
             <InboxIcon className="h-4 w-4" /> Patient chats
           </TabsTrigger>
-          <TabsTrigger value="emails" className="gap-2">
-            <Mail className="h-4 w-4" /> External emails
+          <TabsTrigger value="gmail" className="gap-2">
+            <Mail className="h-4 w-4" /> Gmail
+          </TabsTrigger>
+          <TabsTrigger value="slack" className="gap-2">
+            <Slack className="h-4 w-4" /> Slack
+          </TabsTrigger>
+          <TabsTrigger value="calendly" className="gap-2">
+            <CalendarClock className="h-4 w-4" /> Calendly
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="emails"><EmailsPanel /></TabsContent>
+        <TabsContent value="gmail"><EmailsPanel source="gmail" /></TabsContent>
+        <TabsContent value="slack"><EmailsPanel source="slack" /></TabsContent>
+        <TabsContent value="calendly"><EmailsPanel source="calendly" /></TabsContent>
         <TabsContent value="conversations">
       <div className="grid h-[calc(100vh-12rem)] grid-cols-1 gap-4 md:grid-cols-[320px_1fr]">
         {/* Conversation list */}
@@ -424,7 +432,7 @@ interface ExternalMsg {
   read: boolean;
 }
 
-function EmailsPanel() {
+function EmailsPanel({ source }: { source: "gmail" | "slack" | "calendly" }) {
   const [emails, setEmails] = useState<ExternalMsg[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -435,11 +443,12 @@ function EmailsPanel() {
     const { data } = await supabase
       .from("external_messages")
       .select("*")
+      .eq("source", source)
       .order("received_at", { ascending: false });
     setEmails((data ?? []) as ExternalMsg[]);
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [source]);
 
   const addDemo = async () => {
     if (!draft.from_email.trim() || !draft.body.trim()) {
@@ -447,7 +456,7 @@ function EmailsPanel() {
       return;
     }
     const { error } = await supabase.from("external_messages").insert({
-      source: "gmail",
+      source,
       from_email: draft.from_email.trim(),
       from_name: draft.from_name.trim() || null,
       subject: draft.subject.trim() || null,
@@ -465,13 +474,20 @@ function EmailsPanel() {
     load();
   };
 
+  const labels = {
+    gmail: { title: "Gmail", hint: "Emails forwarded to your Gmail webhook show up here." },
+    slack: { title: "Slack", hint: "Mentions and DMs sent to your Slack bot show up here." },
+    calendly: { title: "Calendly", hint: "New & canceled bookings from Calendly show up here." },
+  } as const;
+  const meta = labels[source];
+
   return (
     <Card className="surface-card">
       <div className="flex items-center justify-between border-b p-3">
         <div>
-          <p className="text-sm font-semibold">Incoming emails</p>
+          <p className="text-sm font-semibold">{meta.title} inbox</p>
           <p className="text-xs text-muted-foreground">
-            Connect Gmail in <a className="underline" href="/integrations">Integrations</a> to receive emails here. Add a sample below to preview.
+            {meta.hint} Configure the webhook in <a className="underline" href="/integrations">Integrations</a>.
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
