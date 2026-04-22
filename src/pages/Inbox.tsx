@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Send, Sparkles, UserCog, Tag, Loader2, Mail, Inbox as InboxIcon, Plus } from "lucide-react";
+import { Search, Send, Sparkles, UserCog, Tag, Loader2, Mail, Inbox as InboxIcon, Plus, Slack, CalendarClock } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
@@ -195,11 +195,19 @@ export default function Inbox() {
           <TabsTrigger value="conversations" className="gap-2">
             <InboxIcon className="h-4 w-4" /> Patient chats
           </TabsTrigger>
-          <TabsTrigger value="emails" className="gap-2">
-            <Mail className="h-4 w-4" /> External emails
+          <TabsTrigger value="gmail" className="gap-2">
+            <Mail className="h-4 w-4" /> Gmail
+          </TabsTrigger>
+          <TabsTrigger value="slack" className="gap-2">
+            <Slack className="h-4 w-4" /> Slack
+          </TabsTrigger>
+          <TabsTrigger value="calendly" className="gap-2">
+            <CalendarClock className="h-4 w-4" /> Calendly
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="emails"><EmailsPanel /></TabsContent>
+        <TabsContent value="gmail"><EmailsPanel source="gmail" /></TabsContent>
+        <TabsContent value="slack"><EmailsPanel source="slack" /></TabsContent>
+        <TabsContent value="calendly"><EmailsPanel source="calendly" /></TabsContent>
         <TabsContent value="conversations">
       <div className="grid h-[calc(100vh-12rem)] grid-cols-1 gap-4 md:grid-cols-[320px_1fr]">
         {/* Conversation list */}
