@@ -432,7 +432,7 @@ interface ExternalMsg {
   read: boolean;
 }
 
-function EmailsPanel() {
+function EmailsPanel({ source }: { source: "gmail" | "slack" | "calendly" }) {
   const [emails, setEmails] = useState<ExternalMsg[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -443,11 +443,12 @@ function EmailsPanel() {
     const { data } = await supabase
       .from("external_messages")
       .select("*")
+      .eq("source", source)
       .order("received_at", { ascending: false });
     setEmails((data ?? []) as ExternalMsg[]);
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [source]);
 
   const addDemo = async () => {
     if (!draft.from_email.trim() || !draft.body.trim()) {
@@ -455,7 +456,7 @@ function EmailsPanel() {
       return;
     }
     const { error } = await supabase.from("external_messages").insert({
-      source: "gmail",
+      source,
       from_email: draft.from_email.trim(),
       from_name: draft.from_name.trim() || null,
       subject: draft.subject.trim() || null,
